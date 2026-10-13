@@ -12,11 +12,13 @@ import {
   HardDrive,
   Cloud,
   Link,
-  Laptop
+  Laptop,
+  AlertCircle
 } from 'lucide-react';
 import { Post, User } from '../../types';
 import { GoogleMediaPicker } from './GoogleMediaPicker';
 import { ALL_GALLERY_PHOTOS } from '../../data/galleryPhotos';
+import { uploadMultipleImages, validateImageFile, MAX_IMAGE_SIZE_BYTES } from '../../lib/imageService';
 
 interface UploadModalProps {
   isOpen: boolean;
@@ -35,6 +37,7 @@ export const UploadModal: React.FC<UploadModalProps> = ({
 }) => {
   const [activeSource, setActiveSource] = useState<'gallery' | 'device' | 'drive' | 'photos' | 'url'>(initialSource);
   const [photos, setPhotos] = useState<string[]>([]);
+  const [pendingFiles, setPendingFiles] = useState<File[]>([]);
   const [caption, setCaption] = useState('');
   const [location, setLocation] = useState('');
   const [customUrl, setCustomUrl] = useState('');
@@ -42,26 +45,44 @@ export const UploadModal: React.FC<UploadModalProps> = ({
   const [celebrationTitle, setCelebrationTitle] = useState('');
   const [isUploading, setIsUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
+  const [uploadStatus, setUploadStatus] = useState('');
+  const [uploadErrors, setUploadErrors] = useState<string[]>([]);
   const [galleryCategoryFilter, setGalleryCategoryFilter] = useState<string>('All');
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   if (!isOpen) return null;
 
-  // Real local file upload handler
+  // Validate & stage device files (don't upload yet — wait for "Publish")
   const handleLocalFiles = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (!files || files.length === 0) return;
 
+    const validFiles: File[] = [];
+    const errors: string[] = [];
+
     Array.from(files).forEach((file) => {
-      const reader = new FileReader();
-      reader.onload = (event) => {
-        if (event.target?.result) {
-          setPhotos(prev => [...prev, event.target!.result as string]);
-        }
-      };
-      reader.readAsDataURL(file);
+      const err = validateImageFile(file);
+      if (err) {
+        errors.push(`${file.name}: ${err}`);
+      } else {
+        validFiles.push(file);
+      }
     });
+
+    setUploadErrors(errors);
+
+    if (validFiles.length > 0) {
+      // Show local previews immediately while Supabase upload happens on publish
+      validFiles.forEach((file) => {
+        const url = URL.createObjectURL(file);
+        setPhotos((prev) => [...prev, url]);
+      });
+      setPendingFiles((prev) => [...prev, ...validFiles]);
+    }
+
+    // Reset input so same file can be re-selected
+    e.target.value = '';
   };
 
   const handleAddCustomUrl = (e: React.FormEvent) => {
@@ -78,43 +99,89 @@ export const UploadModal: React.FC<UploadModalProps> = ({
   };
 
   const handleRemovePhoto = (index: number) => {
+    const removedUrl = photos[index];
     setPhotos(photos.filter((_, i) => i !== index));
+    // Revoke object URL to free memory if it was a local file
+    if (removedUrl.startsWith('blob:')) {
+      URL.revokeObjectURL(removedUrl);
+      // Also remove from pending files (match by index among blob: urls)
+      const blobUrls = photos.filter(u => u.startsWith('blob:'));
+      const blobIdx = blobUrls.indexOf(removedUrl);
+      if (blobIdx >= 0) {
+        setPendingFiles(prev => prev.filter((_, fi) => fi !== blobIdx));
+      }
+    }
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (photos.length === 0) return;
 
     setIsUploading(true);
-    let progress = 0;
-    const interval = setInterval(() => {
-      progress += 25;
-      setUploadProgress(progress);
-      if (progress >= 100) {
-        clearInterval(interval);
-        setTimeout(() => {
-          const newPost: Post = {
-            id: `post_${Date.now()}`,
-            author: currentUser,
-            caption: caption.trim() || 'A quiet, unrepeatable memory with the circle.',
-            photos: photos,
-            location: location.trim() || 'Sanctuary Circle',
-            createdAt: 'Just now',
-            likesCount: 0,
-            hasLiked: false,
-            saved: false,
-            variant: variant,
-            celebrationTitle: variant === 'maximalist' ? (celebrationTitle || 'CELEBRATING TOGETHER') : undefined,
-            celebrationType: variant === 'maximalist' ? 'milestone' : undefined,
-            memoryDate: variant === 'skeuomorphic' ? 'Archived Polaroid • Circle Vault' : undefined,
-            comments: []
-          };
-          onPublish(newPost);
+    setUploadProgress(0);
+    setUploadErrors([]);
+
+    let finalPhotoUrls = [...photos];
+
+    // Upload any pending local files to Supabase Storage
+    if (pendingFiles.length > 0) {
+      setUploadStatus(`Uploading ${pendingFiles.length} image(s) to Supabase…`);
+
+      const { urls: uploadedUrls, errors } = await uploadMultipleImages(
+        pendingFiles,
+        'posts',
+        (done, total) => {
+          setUploadProgress(Math.round((done / total) * 80));
+          setUploadStatus(`Uploaded ${done} of ${total} images…`);
+        }
+      );
+
+      if (errors.length > 0) {
+        setUploadErrors(errors);
+        // If ALL uploads failed, abort
+        if (uploadedUrls.length === 0) {
           setIsUploading(false);
-          onClose();
-        }, 300);
+          return;
+        }
       }
-    }, 150);
+
+      // Replace blob: preview URLs with real Supabase CDN URLs
+      let uploadIdx = 0;
+      finalPhotoUrls = photos.map((url) => {
+        if (url.startsWith('blob:')) {
+          const cdnUrl = uploadedUrls[uploadIdx++] ?? url;
+          URL.revokeObjectURL(url); // free memory
+          return cdnUrl;
+        }
+        return url;
+      });
+    }
+
+    setUploadProgress(90);
+    setUploadStatus('Saving memory…');
+
+    const newPost: Post = {
+      id: `post_${Date.now()}`,
+      author: currentUser,
+      caption: caption.trim() || 'A quiet, unrepeatable memory with the circle.',
+      photos: finalPhotoUrls,
+      location: location.trim() || 'Sanctuary Circle',
+      createdAt: 'Just now',
+      likesCount: 0,
+      hasLiked: false,
+      saved: false,
+      variant: variant,
+      celebrationTitle: variant === 'maximalist' ? (celebrationTitle || 'CELEBRATING TOGETHER') : undefined,
+      celebrationType: variant === 'maximalist' ? 'milestone' : undefined,
+      memoryDate: variant === 'skeuomorphic' ? 'Archived Polaroid • Circle Vault' : undefined,
+      comments: []
+    };
+
+    setUploadProgress(100);
+    onPublish(newPost);
+    setIsUploading(false);
+    setPendingFiles([]);
+    onClose();
   };
 
   return (
@@ -357,7 +424,7 @@ export const UploadModal: React.FC<UploadModalProps> = ({
             )}
             {/* SOURCE 1: DEVICE UPLOAD */}
             {activeSource === 'device' && (
-              <div>
+              <div className="space-y-3">
                 <input
                   type="file"
                   ref={fileInputRef}
@@ -366,6 +433,19 @@ export const UploadModal: React.FC<UploadModalProps> = ({
                   accept="image/*"
                   className="hidden"
                 />
+
+                {/* Upload errors banner */}
+                {uploadErrors.length > 0 && (
+                  <div className="p-3 rounded-2xl bg-rose-500/15 border border-rose-500/30 space-y-1 animate-fadeIn">
+                    <div className="flex items-center gap-2 text-xs text-rose-300 font-semibold">
+                      <AlertCircle className="w-4 h-4 flex-shrink-0" />
+                      <span>{uploadErrors.length} file(s) rejected:</span>
+                    </div>
+                    {uploadErrors.map((err, i) => (
+                      <p key={i} className="text-[11px] text-rose-400 pl-6">{err}</p>
+                    ))}
+                  </div>
+                )}
 
                 <div 
                   onClick={() => fileInputRef.current?.click()}
@@ -376,8 +456,13 @@ export const UploadModal: React.FC<UploadModalProps> = ({
                   </div>
                   <div className="text-sm font-bold text-white">Click or drag local images here</div>
                   <p className="text-xs text-slate-400 mt-1 max-w-sm">
-                    Select JPEG, PNG, HEIC, or RAW from your computer. Processed locally and protected for circle members.
+                    JPEG, PNG, WEBP, or HEIC &mdash; uploaded directly to Supabase Storage.
                   </p>
+                  {/* 3MB limit badge */}
+                  <div className="mt-2 flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-500/15 border border-amber-500/30 text-[11px] text-amber-300 font-mono">
+                    <span>⚠</span>
+                    <span>Max 3 MB per image</span>
+                  </div>
                   <button
                     type="button"
                     onClick={(e) => { e.stopPropagation(); fileInputRef.current?.click(); }}
@@ -585,11 +670,11 @@ export const UploadModal: React.FC<UploadModalProps> = ({
             </div>
           </div>
 
-          {/* Progress Bar simulation */}
+          {/* Progress Bar (real Supabase upload) */}
           {isUploading && (
             <div className="p-4 rounded-2xl bg-white/5 border border-white/10 space-y-2 animate-fadeIn">
               <div className="flex items-center justify-between text-xs text-slate-300 font-mono">
-                <span>Encrypting & Storing in Drive Vault...</span>
+                <span>{uploadStatus || 'Uploading to Supabase Storage…'}</span>
                 <span>{uploadProgress}%</span>
               </div>
               <div className="w-full h-2 bg-slate-800 rounded-full overflow-hidden">
@@ -598,6 +683,13 @@ export const UploadModal: React.FC<UploadModalProps> = ({
                   style={{ width: `${uploadProgress}%` }}
                 />
               </div>
+              {uploadErrors.length > 0 && (
+                <div className="space-y-1 pt-1">
+                  {uploadErrors.map((err, i) => (
+                    <p key={i} className="text-[10px] text-rose-400 font-mono">{err}</p>
+                  ))}
+                </div>
+              )}
             </div>
           )}
 

@@ -83,17 +83,17 @@ export const UI_STYLES: UIStyleInfo[] = [
   }
 ];
 
-// Current user — no gallery photo, use a default avatar placeholder
+// Current user — Building user Mahadin
 export const CURRENT_USER: User = {
-  id: 'usr_mehedi',
-  name: 'Mehedi',
-  username: 'mehedi',
-  avatar: 'https://ui-avatars.com/api/?name=Mehedi&background=0f172a&color=60a5fa&size=128&bold=true',
+  id: '591859a2-7629-4fae-85fc-7eb82698b224',
+  name: 'Mahadin',
+  username: 'mahadin',
+  avatar: 'https://ui-avatars.com/api/?name=Mahadin&background=0f172a&color=60a5fa&size=128&bold=true',
   role: 'admin',
   status: 'approved',
   bio: 'Circle founder & administrator. Preserving real moments.',
   mutualCount: 0,
-  joinedDate: 'Founder',
+  joinedDate: 'October 2026',
   memoriesCount: 0
 };
 

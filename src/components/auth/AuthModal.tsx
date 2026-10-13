@@ -19,7 +19,7 @@ import {
 } from 'lucide-react';
 import { MemoirLogo } from '../common/MemoirLogo';
 import { User } from '../../types';
-import { CURRENT_USER, MOCK_FRIENDS } from '../../data/mockData';
+import { signIn, signUp } from '../../lib/authService';
 
 interface AuthModalProps {
   isOpen: boolean;
@@ -38,9 +38,9 @@ export const AuthModal: React.FC<AuthModalProps> = ({
 }) => {
   const [mode, setMode] = useState<'login' | 'register'>(initialMode);
   
-  // Login form states (clean, no prefilled demo values)
-  const [loginIdentifier, setLoginIdentifier] = useState('');
-  const [loginPassword, setLoginPassword] = useState('');
+  // Login form states (prefilled with building user Mahadin)
+  const [loginIdentifier, setLoginIdentifier] = useState('Mahadin@Memo.com');
+  const [loginPassword, setLoginPassword] = useState('241320');
   const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(true);
 
@@ -70,58 +70,33 @@ export const AuthModal: React.FC<AuthModalProps> = ({
     'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100" viewBox="0 0 100 100"><rect width="100" height="100" rx="30" fill="%2314b8a6"/><path d="M50 46a14 14 0 1 0 0-28 14 14 0 0 0 0 28zm0 8c-16 0-30 10-30 24h60c0-14-14-24-30-24z" fill="white"/></svg>'
   ];
 
-  const handleLoginSubmit = (e: React.FormEvent) => {
+  const handleLoginSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!loginIdentifier.trim() || !loginPassword.trim()) {
-      setErrorMessage('Please enter both your email/username and passphrase.');
+    const emailInput = loginIdentifier.trim();
+    if (!emailInput || !loginPassword.trim()) {
+      setErrorMessage('Please enter both your email and passphrase.');
       return;
     }
 
     setIsLoading(true);
     setErrorMessage('');
 
-    setTimeout(() => {
-      setIsLoading(false);
-      
-      const cleanId = loginIdentifier.trim().toLowerCase();
-      
-      // Match against founder/admin
-      if (cleanId === 'mehedi' || cleanId === 'mehedi@memoir.circle' || cleanId === CURRENT_USER.username.toLowerCase()) {
-        onSuccess(CURRENT_USER);
-        if (onClose) onClose();
-        return;
-      }
+    // Ensure we always send a proper email address
+    const email = emailInput.includes('@') ? emailInput : `${emailInput}@memoir.circle`;
 
-      // Match against known circle members
-      const foundFriend = MOCK_FRIENDS.find(f => 
-        f.username.toLowerCase() === cleanId || 
-        `${f.username.toLowerCase()}@memoir.circle` === cleanId
-      );
+    const { user, error } = await signIn(email, loginPassword);
+    setIsLoading(false);
 
-      if (foundFriend) {
-        onSuccess(foundFriend);
-        if (onClose) onClose();
-      } else {
-        // Authenticate as a recognized circle user
-        const dynamicUser: User = {
-          id: `usr_${Date.now()}`,
-          name: cleanId.includes('@') ? cleanId.split('@')[0] : cleanId,
-          username: cleanId.replace(/[^a-z0-9_]/gi, ''),
-          avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=400&q=80',
-          role: 'member',
-          status: 'approved',
-          bio: 'Circle member.',
-          mutualCount: 6,
-          joinedDate: 'Today',
-          memoriesCount: 0
-        };
-        onSuccess(dynamicUser);
-        if (onClose) onClose();
-      }
-    }, 600);
+    if (error || !user) {
+      setErrorMessage(error ?? 'Authentication failed. Please check your credentials.');
+      return;
+    }
+
+    onSuccess(user);
+    if (onClose) onClose();
   };
 
-  const handleRegisterSubmit = (e: React.FormEvent) => {
+  const handleRegisterSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!regName.trim() || !regUsername.trim()) {
       setErrorMessage('Please provide your name and circle username.');
@@ -141,27 +116,27 @@ export const AuthModal: React.FC<AuthModalProps> = ({
     setIsLoading(true);
     setErrorMessage('');
 
-    setTimeout(() => {
-      setIsLoading(false);
-      const newUser: User = {
-        id: `usr_${Date.now()}`,
-        name: regName.trim(),
-        username: regUsername.trim().replace(/^@/, ''),
-        avatar: regAvatar,
-        role: 'member',
-        status: regInviteToken.trim() ? 'approved' : 'pending',
-        bio: regBio.trim() || 'A new friend joining the Memoir circle.',
-        mutualCount: 6,
-        joinedDate: 'Just now',
-        memoriesCount: 0
-      };
+    const { user, error } = await signUp({
+      email: regEmail.trim(),
+      password: regPassword,
+      name: regName.trim(),
+      username: regUsername.trim().replace(/^@/, ''),
+      bio: regBio.trim() || 'A new friend joining the Memoir circle.',
+      avatar: regAvatar,
+    });
 
-      setSuccessMessage('Welcome to Memoir! Your private circle passport is ready.');
-      setTimeout(() => {
-        onSuccess(newUser);
-        if (onClose) onClose();
-      }, 700);
-    }, 800);
+    setIsLoading(false);
+
+    if (error || !user) {
+      setErrorMessage(error ?? 'Registration failed. Please try again.');
+      return;
+    }
+
+    setSuccessMessage('Welcome to Memoir! Your private circle passport is ready.');
+    setTimeout(() => {
+      onSuccess(user);
+      if (onClose) onClose();
+    }, 700);
   };
 
   return (
@@ -249,6 +224,33 @@ export const AuthModal: React.FC<AuthModalProps> = ({
           {mode === 'login' ? (
             /* ================= LOGIN FORM ================= */
             <form onSubmit={handleLoginSubmit} className="space-y-4">
+              {/* Building User Credentials Quick Badge */}
+              <div className="p-3 rounded-2xl bg-sky-500/10 border border-sky-400/20 flex items-center justify-between">
+                <div className="flex items-center gap-2.5 text-left">
+                  <div className="w-8 h-8 rounded-xl bg-sky-500/20 text-sky-400 border border-sky-400/30 flex items-center justify-center font-bold text-xs">
+                    M
+                  </div>
+                  <div>
+                    <div className="text-xs font-bold text-white flex items-center gap-1.5">
+                      <span>Building User: Mahadin</span>
+                      <span className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">Verified</span>
+                    </div>
+                    <div className="text-[10px] text-slate-400 font-mono">Mahadin@Memo.com • Pass: 241320</div>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setLoginIdentifier('Mahadin@Memo.com');
+                    setLoginPassword('241320');
+                    setErrorMessage('');
+                  }}
+                  className="px-2.5 py-1 rounded-xl bg-sky-500/20 hover:bg-sky-500/30 text-sky-300 border border-sky-400/30 text-[11px] font-bold transition flex-shrink-0"
+                >
+                  Fill
+                </button>
+              </div>
+
               <div>
                 <label className="text-xs font-semibold text-slate-300 block mb-1.5 flex items-center justify-between">
                   <span>Circle Email or Username</span>

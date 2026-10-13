@@ -13,10 +13,13 @@ import {
   ArrowRight,
   Filter,
   CheckCircle2,
-  Trash2
+  Trash2,
+  AlertCircle,
+  Loader2
 } from 'lucide-react';
 import { Post } from '../../types';
 import { ALL_GALLERY_PHOTOS, GalleryPhoto } from '../../data/galleryPhotos';
+import { uploadImageToSupabase, validateImageFile } from '../../lib/imageService';
 
 interface ImageCrudModalProps {
   isOpen: boolean;
@@ -49,6 +52,8 @@ export const ImageCrudModal: React.FC<ImageCrudModalProps> = ({
   const [galleryCategory, setGalleryCategory] = useState<string>('All');
   const [customUrl, setCustomUrl] = useState('');
   const [activeFilter, setActiveFilter] = useState<'none' | 'sepia' | 'grayscale' | 'contrast' | 'warm'>('none');
+  const [isUploading, setIsUploading] = useState(false);
+  const [uploadError, setUploadError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Gallery categories
@@ -62,22 +67,37 @@ export const ImageCrudModal: React.FC<ImageCrudModalProps> = ({
     return matchesSearch && matchesCat;
   });
 
-  // Handle local file upload
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  // Handle local file upload → Supabase Storage
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
-    if (files && files[0]) {
-      const reader = new FileReader();
-      reader.onload = (event) => {
-        if (event.target?.result) {
-          setSelectedPhotoUrl(event.target.result as string);
-        }
-      };
-      reader.readAsDataURL(files[0]);
+    if (!files || !files[0]) return;
+
+    const file = files[0];
+    e.target.value = ''; // reset so same file can be re-selected
+
+    // Client-side size/type validation
+    const validationErr = validateImageFile(file);
+    if (validationErr) {
+      setUploadError(validationErr);
+      return;
     }
+
+    setUploadError(null);
+    setIsUploading(true);
+
+    const result = await uploadImageToSupabase(file, 'posts');
+    setIsUploading(false);
+
+    if (result.error) {
+      setUploadError(result.error);
+      return;
+    }
+
+    setSelectedPhotoUrl(result.url!);
   };
 
   const handleApply = () => {
-    if (!selectedPhotoUrl) return;
+    if (!selectedPhotoUrl || isUploading) return;
     onSavePhoto(selectedPhotoUrl);
     onClose();
   };
@@ -339,28 +359,51 @@ export const ImageCrudModal: React.FC<ImageCrudModalProps> = ({
                 className="hidden"
               />
 
+              {/* Upload error banner */}
+              {uploadError && (
+                <div className="p-3 rounded-2xl bg-rose-500/15 border border-rose-500/30 flex items-start gap-2 animate-fadeIn">
+                  <AlertCircle className="w-4 h-4 text-rose-400 flex-shrink-0 mt-0.5" />
+                  <p className="text-xs text-rose-300">{uploadError}</p>
+                </div>
+              )}
+
               <div 
-                onClick={() => fileInputRef.current?.click()}
-                className="border-2 border-dashed border-sky-400/40 hover:border-sky-400 rounded-3xl p-8 flex flex-col items-center justify-center text-center cursor-pointer bg-sky-950/10 hover:bg-sky-950/20 transition group"
+                onClick={() => !isUploading && fileInputRef.current?.click()}
+                className={`border-2 border-dashed rounded-3xl p-8 flex flex-col items-center justify-center text-center transition group ${
+                  isUploading
+                    ? 'border-sky-400/40 bg-sky-950/20 cursor-wait'
+                    : 'border-sky-400/40 hover:border-sky-400 bg-sky-950/10 hover:bg-sky-950/20 cursor-pointer'
+                }`}
               >
                 <div className="w-14 h-14 rounded-2xl bg-sky-500/20 text-sky-400 flex items-center justify-center mb-3 group-hover:scale-110 transition-transform">
-                  <Upload className="w-7 h-7" />
+                  {isUploading ? (
+                    <Loader2 className="w-7 h-7 animate-spin" />
+                  ) : (
+                    <Upload className="w-7 h-7" />
+                  )}
                 </div>
                 <h4 className="text-sm font-bold text-white mb-1">
-                  Click to browse or drop an image from your device
+                  {isUploading ? 'Uploading to Supabase…' : 'Click to browse or drop an image from your device'}
                 </h4>
-                <p className="text-xs text-slate-400 max-w-sm mb-4">
-                  Supports JPG, PNG, WEBP, and HEIC uncompressed photos.
+                <p className="text-xs text-slate-400 max-w-sm mb-3">
+                  JPG, PNG, WEBP, or HEIC — stored in Supabase Storage.
                 </p>
-                <button
-                  type="button"
-                  className="px-4 py-2 rounded-xl bg-sky-500 hover:bg-sky-400 text-white font-bold text-xs shadow-lg shadow-sky-500/25 transition"
-                >
-                  Browse Device Files
-                </button>
+                {/* 3MB limit badge */}
+                <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-500/15 border border-amber-500/30 text-[11px] text-amber-300 font-mono mb-3">
+                  <span>⚠</span>
+                  <span>Max 3 MB per image</span>
+                </div>
+                {!isUploading && (
+                  <button
+                    type="button"
+                    className="px-4 py-2 rounded-xl bg-sky-500 hover:bg-sky-400 text-white font-bold text-xs shadow-lg shadow-sky-500/25 transition"
+                  >
+                    Browse Device Files
+                  </button>
+                )}
               </div>
 
-              {selectedPhotoUrl && selectedPhotoUrl.startsWith('data:') && (
+              {selectedPhotoUrl && !selectedPhotoUrl.startsWith('data:') && selectedPhotoUrl.includes('supabase') && (
                 <div className="p-4 rounded-2xl bg-slate-900 border border-white/10 flex items-center gap-4">
                   <img 
                     src={selectedPhotoUrl} 
@@ -370,7 +413,7 @@ export const ImageCrudModal: React.FC<ImageCrudModalProps> = ({
                   <div>
                     <span className="text-xs font-bold text-white flex items-center gap-1.5">
                       <CheckCircle2 className="w-4 h-4 text-emerald-400" />
-                      Image loaded successfully from device
+                      Uploaded to Supabase Storage
                     </span>
                     <p className="text-[11px] text-slate-400 mt-0.5">
                       Ready to attach as {mode === 'replace' ? 'replacement' : 'new photo'}.
@@ -380,6 +423,7 @@ export const ImageCrudModal: React.FC<ImageCrudModalProps> = ({
               )}
             </div>
           )}
+
 
           {/* TAB 3: GOOGLE PHOTOS & DRIVE */}
           {activeTab === 'google' && (
@@ -480,7 +524,12 @@ export const ImageCrudModal: React.FC<ImageCrudModalProps> = ({
         {/* Footer Actions Bar */}
         <div className="px-6 py-4 border-t border-white/10 bg-slate-900/90 backdrop-blur-md flex items-center justify-between">
           <div className="flex items-center gap-2">
-            {selectedPhotoUrl ? (
+            {isUploading ? (
+              <span className="text-xs text-sky-400 flex items-center gap-1.5 font-medium">
+                <Loader2 className="w-4 h-4 animate-spin" />
+                Uploading to Supabase…
+              </span>
+            ) : selectedPhotoUrl ? (
               <span className="text-xs text-emerald-400 flex items-center gap-1.5 font-medium">
                 <CheckCircle2 className="w-4 h-4" />
                 Photo selected
@@ -503,17 +552,22 @@ export const ImageCrudModal: React.FC<ImageCrudModalProps> = ({
 
             <button
               type="button"
-              disabled={!selectedPhotoUrl}
+              disabled={!selectedPhotoUrl || isUploading}
               onClick={handleApply}
               className={`px-5 py-2.5 rounded-xl font-bold text-xs shadow-lg transition flex items-center gap-2 ${
-                selectedPhotoUrl
+                selectedPhotoUrl && !isUploading
                   ? mode === 'replace'
                     ? 'bg-amber-400 hover:bg-amber-300 text-slate-950 shadow-amber-500/25 cursor-pointer'
                     : 'bg-sky-500 hover:bg-sky-400 text-white shadow-sky-500/25 cursor-pointer'
                   : 'bg-white/10 text-slate-500 cursor-not-allowed'
               }`}
             >
-              {mode === 'replace' ? (
+              {isUploading ? (
+                <>
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  <span>Uploading…</span>
+                </>
+              ) : mode === 'replace' ? (
                 <>
                   <RefreshCw className="w-3.5 h-3.5" />
                   <span>Replace This Photo</span>
@@ -531,3 +585,5 @@ export const ImageCrudModal: React.FC<ImageCrudModalProps> = ({
     </div>
   );
 };
+
+

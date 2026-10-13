@@ -8,6 +8,20 @@ import {
   UI_STYLES 
 } from './data/mockData';
 import { Post, User, ViewTab, UIStyleId, MemoryItem, NotificationItem } from './types';
+import { onAuthStateChange, signOut } from './lib/authService';
+import { 
+  fetchPosts, 
+  createPost, 
+  updatePost, 
+  deletePost, 
+  toggleLike, 
+  toggleSaved, 
+  addComment, 
+  fetchProfiles,
+  subscribeToPostChanges,
+  subscribeToCommentChanges,
+  subscribeToLikeChanges
+} from './lib/dbService';
 import { AppHeader } from './components/navigation/AppHeader';
 import { SidebarNav } from './components/navigation/SidebarNav';
 import { MobileBottomNav } from './components/navigation/MobileBottomNav';
@@ -96,9 +110,90 @@ export function App() {
   
   // Authentication State
   const [currentUser, setCurrentUser] = useState<User>(CURRENT_USER);
-  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(true);
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
   const [isAuthOpen, setIsAuthOpen] = useState(false);
   const [authMode, setAuthMode] = useState<'login' | 'register'>('login');
+  const [authLoading, setAuthLoading] = useState(true);
+
+  // Restore Supabase session on mount
+  useEffect(() => {
+    const { unsubscribe } = onAuthStateChange((user) => {
+      if (user) {
+        setCurrentUser(user);
+        setIsAuthenticated(true);
+      } else {
+        // No active session – show login screen
+        setIsAuthenticated(false);
+      }
+      setAuthLoading(false);
+    });
+    return unsubscribe;
+  }, []);
+
+  // Live Supabase Database Data Synchronization
+  useEffect(() => {
+    let isMounted = true;
+
+    async function syncFromSupabase() {
+      try {
+        const dbPosts = await fetchPosts(currentUser.id);
+        if (isMounted && dbPosts.length > 0) {
+          setPosts(dbPosts);
+          // Sync memories timeline from database posts
+          const dbMemories: MemoryItem[] = dbPosts
+            .filter(p => p.photos && p.photos.length > 0)
+            .map(p => ({
+              id: `mem_${p.id}`,
+              yearAgo: 'Today',
+              date: p.createdAt || 'Present Day',
+              title: p.celebrationTitle || (p.caption.length > 30 ? p.caption.slice(0, 30) + '...' : p.caption) || 'Circle Memory',
+              story: p.caption,
+              photos: p.photos,
+              author: p.author,
+              mood: 'Joyful',
+              style: p.variant === 'maximalist' ? 'maximalist' : p.variant === 'spatial' ? 'spatial' : 'polaroid',
+              tags: ['Live Memory', 'Vault']
+            }));
+          if (dbMemories.length > 0) {
+            setMemories(dbMemories);
+          }
+        }
+
+        const dbProfiles = await fetchProfiles();
+        if (isMounted && dbProfiles.length > 0) {
+          setFriends(dbProfiles.filter(p => p.id !== currentUser.id));
+        }
+      } catch (err) {
+        console.warn('[DB] Supabase live sync initial notice:', err);
+      }
+    }
+
+    syncFromSupabase();
+
+    // Subscribe to live Realtime database updates
+    const unsubPosts = subscribeToPostChanges(async () => {
+      const fresh = await fetchPosts(currentUser.id);
+      if (isMounted && fresh.length > 0) setPosts(fresh);
+    });
+
+    const unsubComments = subscribeToCommentChanges(async () => {
+      const fresh = await fetchPosts(currentUser.id);
+      if (isMounted && fresh.length > 0) setPosts(fresh);
+    });
+
+    const unsubLikes = subscribeToLikeChanges(async () => {
+      const fresh = await fetchPosts(currentUser.id);
+      if (isMounted && fresh.length > 0) setPosts(fresh);
+    });
+
+    return () => {
+      isMounted = false;
+      unsubPosts();
+      unsubComments();
+      unsubLikes();
+    };
+  }, [currentUser.id]);
+
 
   // Modal States
   const [isUploadOpen, setIsUploadOpen] = useState(false);
@@ -155,8 +250,10 @@ export function App() {
     }
   };
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    await signOut();
     setIsAuthenticated(false);
+    setCurrentUser(CURRENT_USER);
     setAuthMode('login');
     setIsAuthOpen(true);
   };
@@ -168,30 +265,47 @@ export function App() {
 
   // Post & Social Handlers
   const handleLikeToggle = (postId: string) => {
+    const post = posts.find(p => p.id === postId);
+    const currentlyLiked = post?.hasLiked ?? false;
+
     setPosts(prev => prev.map(p => {
       if (p.id === postId) {
         const nextLiked = !p.hasLiked;
         return {
           ...p,
           hasLiked: nextLiked,
-          likesCount: nextLiked ? p.likesCount + 1 : p.likesCount - 1
+          likesCount: nextLiked ? p.likesCount + 1 : Math.max(0, p.likesCount - 1)
         };
       }
       return p;
     }));
+
+    // Persist to Supabase Database
+    toggleLike(postId, currentUser.id, currentlyLiked).catch(err =>
+      console.warn('[DB] like toggle failed:', err)
+    );
   };
 
   const handleSaveToggle = (postId: string) => {
+    const post = posts.find(p => p.id === postId);
+    const currentlySaved = post?.saved ?? false;
+
     setPosts(prev => prev.map(p => {
       if (p.id === postId) {
         return { ...p, saved: !p.saved };
       }
       return p;
     }));
+
+    // Persist to Supabase Database
+    toggleSaved(postId, currentUser.id, currentlySaved).catch(err =>
+      console.warn('[DB] save toggle failed:', err)
+    );
   };
 
   // POST CRUD OPERATIONS
-  const handleAddPost = (newPost: Post) => {
+  const handleAddPost = async (newPost: Post) => {
+    // Immediate UI update
     setPosts(prev => [newPost, ...prev]);
     if (newPost.photos && newPost.photos.length > 0) {
       const newMemory: MemoryItem = {
@@ -208,6 +322,16 @@ export function App() {
       };
       setMemories(prev => [newMemory, ...prev]);
     }
+
+    // Persist directly to Supabase Database
+    try {
+      const res = await createPost(newPost, currentUser.id);
+      if (res.error) {
+        console.error('[DB] createPost error in Supabase:', res.error);
+      }
+    } catch (err) {
+      console.error('[DB] createPost unexpected error:', err);
+    }
   };
 
   const handleUpdatePost = (postId: string, updatedFields: Partial<Post>) => {
@@ -222,6 +346,11 @@ export function App() {
     if (editingPost?.id === postId) {
       setEditingPost(null);
     }
+
+    // Persist to Supabase Database
+    updatePost(postId, updatedFields).catch(err =>
+      console.warn('[DB] updatePost failed in Supabase:', err)
+    );
   };
 
   const handleDeletePost = (postId: string) => {
@@ -230,6 +359,11 @@ export function App() {
     if (editingPost?.id === postId) {
       setEditingPost(null);
     }
+
+    // Persist to Supabase Database
+    deletePost(postId).catch(err =>
+      console.warn('[DB] deletePost failed in Supabase:', err)
+    );
   };
 
   // FEED PHOTO CRUD OPERATIONS
@@ -388,6 +522,11 @@ export function App() {
       }
       return p;
     }));
+
+    // Persist to Supabase Database
+    addComment(postId, currentUser.id, text).catch(err =>
+      console.warn('[DB] addComment failed in Supabase:', err)
+    );
   };
 
   const handleOpenPhotoViewer = (photos: string[], initialIndex: number, post?: Post) => {
@@ -422,6 +561,18 @@ export function App() {
   // Calculate total images count across posts
   const totalImagesDisplayed = displayedPosts.reduce((acc, p) => acc + (p.photos?.length || 1), 0);
   const totalImagesAvailable = filteredPosts.reduce((acc, p) => acc + (p.photos?.length || 1), 0);
+
+  // Show a minimal loader while Supabase restores the session
+  if (authLoading) {
+    return (
+      <div className="min-h-screen bg-[#080d19] flex items-center justify-center">
+        <div className="flex flex-col items-center gap-4">
+          <div className="w-10 h-10 rounded-full border-2 border-sky-500/30 border-t-sky-400 animate-spin" />
+          <p className="text-xs text-slate-500 font-mono animate-pulse">Restoring session…</p>
+        </div>
+      </div>
+    );
+  }
 
   // If user signed out, display full-screen Auth Screen
   if (!isAuthenticated) {

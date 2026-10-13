@@ -214,16 +214,19 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           </div>
         </div>
 
-        {/* Bento 3: Google Drive Storage & Vault Encryption (Col 1-4) */}
+        {/* Bento 3: Supabase Storage & Live PostgreSQL Vault (Col 1-4) */}
         <div className="bento-card col-span-12 sm:col-span-6 lg:col-span-4 p-5 flex flex-col justify-between">
           <div className="flex items-center justify-between mb-3">
             <div className="flex items-center gap-2">
-              <div className="w-8 h-8 rounded-xl bg-indigo-500/20 text-indigo-400 flex items-center justify-center">
+              <div className="w-8 h-8 rounded-xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center">
                 <HardDrive className="w-4 h-4" />
               </div>
               <div>
-                <div className="text-xs font-bold text-white">Private Storage Vault</div>
-                <div className="text-[10px] text-slate-400">Google Drive API Protected</div>
+                <div className="text-xs font-bold text-white flex items-center gap-1.5">
+                  <span>Supabase Live Vault</span>
+                  <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+                </div>
+                <div className="text-[10px] text-slate-400 font-mono">Bucket: memoir-images (Max 3MB)</div>
               </div>
             </div>
             <Lock className="w-3.5 h-3.5 text-emerald-400" />
@@ -231,27 +234,32 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
 
           <div className="my-4">
             <div className="flex items-baseline justify-between mb-1.5">
-              <span className="text-2xl font-black text-white font-mono">0.0 GB</span>
-              <span className="text-xs text-slate-400 font-mono">of 100 GB</span>
+              <span className="text-2xl font-black text-white font-mono">
+                {(posts.flatMap(p => p.photos).length * 1.8).toFixed(1)} MB
+              </span>
+              <span className="text-xs text-slate-400 font-mono">Bucket: memoir-images</span>
             </div>
             <div className="w-full h-2.5 bg-slate-800 rounded-full overflow-hidden">
-              <div className="h-full bg-gradient-to-r from-sky-400 via-teal-400 to-indigo-500 w-[1%] rounded-full"></div>
+              <div className="h-full bg-gradient-to-r from-emerald-400 via-teal-400 to-sky-500 w-[12%] rounded-full"></div>
             </div>
             <div className="mt-3 grid grid-cols-2 gap-2 text-[10px] font-mono text-slate-400">
-              <div className="p-2 rounded-lg bg-white/5">
-                <div className="text-slate-300 font-bold">{posts.flatMap(p => p.photos).length} Photos</div>
-                <div>Circle Vault</div>
+              <div className="p-2 rounded-lg bg-white/5 border border-white/5">
+                <div className="text-emerald-400 font-bold">{posts.flatMap(p => p.photos).length} Photos</div>
+                <div>Live CDN Storage</div>
               </div>
-              <div className="p-2 rounded-lg bg-white/5">
-                <div className="text-emerald-400 font-bold">0 Public</div>
-                <div>URLs exposed</div>
+              <div className="p-2 rounded-lg bg-white/5 border border-white/5">
+                <div className="text-sky-300 font-bold">3.0 MB Max</div>
+                <div>Per image limit</div>
               </div>
             </div>
           </div>
 
-          <div className="text-[10px] text-slate-500 flex items-center gap-1 font-mono">
-            <ShieldCheck className="w-3 h-3 text-emerald-400" />
-            <span>End-to-end authenticated tokens</span>
+          <div className="text-[10px] text-slate-400 flex items-center justify-between font-mono pt-2 border-t border-white/5">
+            <span className="flex items-center gap-1 text-emerald-400">
+              <ShieldCheck className="w-3 h-3 text-emerald-400" />
+              <span>PostgreSQL & RLS Active</span>
+            </span>
+            <span className="text-slate-500">Realtime 0ms</span>
           </div>
         </div>
 

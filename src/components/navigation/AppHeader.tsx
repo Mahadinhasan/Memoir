@@ -17,6 +17,7 @@ import {
   Key
 } from 'lucide-react';
 import { MemoirLogo } from '../common/MemoirLogo';
+import { DatabaseLiveIndicator } from '../common/DatabaseLiveIndicator';
 import { NotificationItem, User, ViewTab } from '../../types';
 
 interface AppHeaderProps {
@@ -59,14 +60,6 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
           >
             <MemoirLogo size="md" />
           </button>
-
-          {/* Circle Security Badge */}
-          <div className="hidden lg:flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs">
-            <Lock className="w-3 h-3 text-emerald-400" />
-            <span className="font-medium">Encrypted Circle</span>
-            <span className="text-slate-500">•</span>
-            <span className="text-slate-300">6 Members</span>
-          </div>
         </div>
 
         {/* Center Search / Filter (Glassmorphic) */}
@@ -93,15 +86,15 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
 
         {/* Right Action Icons */}
         <div className="flex items-center gap-3">
+          {/* Live Supabase Database & Storage Indicator */}
+          <DatabaseLiveIndicator currentUserEmail="Mahadin@Memo.com" />
+
           {/* Style System Inspector Button (Highlights all 10 styles) */}
           <button
             onClick={onOpenStyleGuide}
             className="hidden sm:flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-gradient-to-r from-sky-500/20 via-indigo-500/20 to-purple-500/20 hover:from-sky-500/30 hover:via-indigo-500/30 hover:to-purple-500/30 border border-sky-400/30 text-sky-200 text-xs font-semibold shadow-sm transition-all"
             title="Inspect 10 UI Styles Integration"
           >
-            <Layers className="w-3.5 h-3.5 text-sky-300" />
-            <span>10 UI Styles</span>
-            <span className="w-2 h-2 rounded-full bg-sky-400 animate-ping"></span>
           </button>
 
           {/* Quick Upload Button (Liquid Glass Button) */}
