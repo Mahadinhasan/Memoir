@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   MOCK_POSTS, 
   MOCK_FRIENDS, 
@@ -38,12 +38,61 @@ import {
   UserCheck
 } from 'lucide-react';
 
+// Helper: merge mock data with localStorage-persisted user data.
+// localStorage versions take priority (they contain user's uploaded photos).
+// New items from mock data that don't exist in localStorage are also included.
+function mergeWithMock<T extends { id: string }>(storageKey: string, mockData: T[]): T[] {
+  try {
+    const raw = localStorage.getItem(storageKey);
+    if (raw) {
+      const stored: T[] = JSON.parse(raw);
+      // Build a map of stored items by ID
+      const storedMap = new Map(stored.map(item => [item.id, item]));
+      // Add any mock items not already in storage (new mock data added by developers)
+      for (const mockItem of mockData) {
+        if (!storedMap.has(mockItem.id)) {
+          storedMap.set(mockItem.id, mockItem);
+        }
+      }
+      // Return stored order first, then any new mock items
+      const result: T[] = [...stored];
+      for (const mockItem of mockData) {
+        if (!stored.some(s => s.id === mockItem.id)) {
+          result.push(mockItem);
+        }
+      }
+      return result;
+    }
+  } catch {
+    // ignore parse errors
+  }
+  return mockData;
+}
+
 export function App() {
   const [activeTab, setActiveTab] = useState<ViewTab>('feed');
-  const [posts, setPosts] = useState<Post[]>(MOCK_POSTS);
+  const [posts, setPosts] = useState<Post[]>(() => mergeWithMock<Post>('memoir_posts', MOCK_POSTS));
   const [friends, setFriends] = useState<User[]>(MOCK_FRIENDS);
-  const [memories, setMemories] = useState<MemoryItem[]>(MOCK_MEMORIES);
+  const [memories, setMemories] = useState<MemoryItem[]>(() => mergeWithMock<MemoryItem>('memoir_memories', MOCK_MEMORIES));
   const [notifications, setNotifications] = useState<NotificationItem[]>(MOCK_NOTIFICATIONS);
+
+  // Persist posts to localStorage whenever they change
+  useEffect(() => {
+    try {
+      localStorage.setItem('memoir_posts', JSON.stringify(posts));
+    } catch (e) {
+      console.warn('localStorage quota exceeded for posts. Uploaded images may not persist after reload.', e);
+    }
+  }, [posts]);
+
+  // Persist memories to localStorage whenever they change
+  useEffect(() => {
+    try {
+      localStorage.setItem('memoir_memories', JSON.stringify(memories));
+    } catch (e) {
+      console.warn('localStorage quota exceeded for memories.', e);
+    }
+  }, [memories]);
   
   // Authentication State
   const [currentUser, setCurrentUser] = useState<User>(CURRENT_USER);
