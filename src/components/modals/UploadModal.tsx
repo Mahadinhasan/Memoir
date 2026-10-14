@@ -13,12 +13,18 @@ import {
   Cloud,
   Link,
   Laptop,
-  AlertCircle
+  AlertCircle,
+  Loader2
 } from 'lucide-react';
 import { Post, User } from '../../types';
 import { GoogleMediaPicker } from './GoogleMediaPicker';
 import { ALL_GALLERY_PHOTOS } from '../../data/galleryPhotos';
-import { uploadMultipleImages, validateImageFile, MAX_IMAGE_SIZE_BYTES } from '../../lib/imageService';
+import { 
+  uploadMultipleImages, 
+  validateImageFile, 
+  IMAGE_INPUT_ACCEPT, 
+  processImageForDisplay 
+} from '../../lib/imageService';
 
 interface UploadModalProps {
   isOpen: boolean;
@@ -37,7 +43,6 @@ export const UploadModal: React.FC<UploadModalProps> = ({
 }) => {
   const [activeSource, setActiveSource] = useState<'gallery' | 'device' | 'drive' | 'photos' | 'url'>(initialSource);
   const [photos, setPhotos] = useState<string[]>([]);
-  const [pendingFiles, setPendingFiles] = useState<File[]>([]);
   const [caption, setCaption] = useState('');
   const [location, setLocation] = useState('');
   const [customUrl, setCustomUrl] = useState('');
@@ -53,35 +58,57 @@ export const UploadModal: React.FC<UploadModalProps> = ({
 
   if (!isOpen) return null;
 
-  // Validate & stage device files (don't upload yet — wait for "Publish")
-  const handleLocalFiles = (e: React.ChangeEvent<HTMLInputElement>) => {
+  // Immediately upload local device files to Supabase Storage with progress
+  const handleLocalFiles = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (!files || files.length === 0) return;
+
+    setIsUploading(true);
+    setUploadProgress(10);
+    setUploadStatus('Preparing and validating images…');
+    setUploadErrors([]);
 
     const validFiles: File[] = [];
     const errors: string[] = [];
 
-    Array.from(files).forEach((file) => {
+    for (const file of Array.from(files)) {
       const err = validateImageFile(file);
       if (err) {
         errors.push(`${file.name}: ${err}`);
       } else {
-        validFiles.push(file);
+        const processed = await processImageForDisplay(file);
+        validFiles.push(processed);
       }
-    });
-
-    setUploadErrors(errors);
-
-    if (validFiles.length > 0) {
-      // Show local previews immediately while Supabase upload happens on publish
-      validFiles.forEach((file) => {
-        const url = URL.createObjectURL(file);
-        setPhotos((prev) => [...prev, url]);
-      });
-      setPendingFiles((prev) => [...prev, ...validFiles]);
     }
 
-    // Reset input so same file can be re-selected
+    if (errors.length > 0) {
+      setUploadErrors(errors);
+    }
+
+    if (validFiles.length > 0) {
+      setUploadStatus(`Uploading ${validFiles.length} image(s) to Supabase Storage…`);
+      const { urls, errors: uploadErrs } = await uploadMultipleImages(
+        validFiles,
+        'posts',
+        (done, total) => {
+          setUploadProgress(Math.round(15 + (done / total) * 80));
+          setUploadStatus(`Uploaded ${done} of ${total} images…`);
+        }
+      );
+
+      if (uploadErrs.length > 0) {
+        setUploadErrors(prev => [...prev, ...uploadErrs]);
+      }
+
+      if (urls.length > 0) {
+        setPhotos(prev => [...prev, ...urls]);
+      }
+    }
+
+    setIsUploading(false);
+    setUploadProgress(0);
+    setUploadStatus('');
+    // Reset input so same file can be re-selected if needed
     e.target.value = '';
   };
 
@@ -99,72 +126,24 @@ export const UploadModal: React.FC<UploadModalProps> = ({
   };
 
   const handleRemovePhoto = (index: number) => {
-    const removedUrl = photos[index];
     setPhotos(photos.filter((_, i) => i !== index));
-    // Revoke object URL to free memory if it was a local file
-    if (removedUrl.startsWith('blob:')) {
-      URL.revokeObjectURL(removedUrl);
-      // Also remove from pending files (match by index among blob: urls)
-      const blobUrls = photos.filter(u => u.startsWith('blob:'));
-      const blobIdx = blobUrls.indexOf(removedUrl);
-      if (blobIdx >= 0) {
-        setPendingFiles(prev => prev.filter((_, fi) => fi !== blobIdx));
-      }
-    }
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (photos.length === 0) return;
+    if (photos.length === 0 || isUploading) return;
 
-    setIsUploading(true);
-    setUploadProgress(0);
-    setUploadErrors([]);
-
-    let finalPhotoUrls = [...photos];
-
-    // Upload any pending local files to Supabase Storage
-    if (pendingFiles.length > 0) {
-      setUploadStatus(`Uploading ${pendingFiles.length} image(s) to Supabase…`);
-
-      const { urls: uploadedUrls, errors } = await uploadMultipleImages(
-        pendingFiles,
-        'posts',
-        (done, total) => {
-          setUploadProgress(Math.round((done / total) * 80));
-          setUploadStatus(`Uploaded ${done} of ${total} images…`);
-        }
-      );
-
-      if (errors.length > 0) {
-        setUploadErrors(errors);
-        // If ALL uploads failed, abort
-        if (uploadedUrls.length === 0) {
-          setIsUploading(false);
-          return;
-        }
-      }
-
-      // Replace blob: preview URLs with real Supabase CDN URLs
-      let uploadIdx = 0;
-      finalPhotoUrls = photos.map((url) => {
-        if (url.startsWith('blob:')) {
-          const cdnUrl = uploadedUrls[uploadIdx++] ?? url;
-          URL.revokeObjectURL(url); // free memory
-          return cdnUrl;
-        }
-        return url;
-      });
+    const cleanPhotos = photos.filter(u => u && !u.startsWith('blob:'));
+    if (cleanPhotos.length === 0) {
+      setUploadErrors(['Please select or upload at least one valid photo.']);
+      return;
     }
-
-    setUploadProgress(90);
-    setUploadStatus('Saving memory…');
 
     const newPost: Post = {
       id: `post_${Date.now()}`,
       author: currentUser,
       caption: caption.trim() || 'A quiet, unrepeatable memory with the circle.',
-      photos: finalPhotoUrls,
+      photos: cleanPhotos,
       location: location.trim() || 'Sanctuary Circle',
       createdAt: 'Just now',
       likesCount: 0,
@@ -177,37 +156,34 @@ export const UploadModal: React.FC<UploadModalProps> = ({
       comments: []
     };
 
-    setUploadProgress(100);
     onPublish(newPost);
-    setIsUploading(false);
-    setPendingFiles([]);
     onClose();
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-fadeIn">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-black/80 backdrop-blur-md animate-fadeIn">
       <div className="relative w-full max-w-3xl bg-[#0f172a] border border-white/15 rounded-3xl shadow-2xl overflow-hidden flex flex-col max-h-[94vh]">
         {/* Modal Header */}
-        <div className="px-6 py-4 border-b border-white/10 flex items-center justify-between bg-slate-900/80">
-          <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-sky-400 to-teal-400 flex items-center justify-center text-white shadow-md shadow-sky-500/20">
+        <div className="px-4 sm:px-6 py-3.5 sm:py-4 border-b border-white/10 flex items-center justify-between bg-slate-900/80 gap-2">
+          <div className="flex items-center gap-2.5 min-w-0">
+            <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-sky-400 to-teal-400 flex items-center justify-center text-white shadow-md shadow-sky-500/20 flex-shrink-0">
               <Upload className="w-4 h-4" />
             </div>
-            <div>
-              <h3 className="text-base font-bold text-white">Create Private Memory</h3>
-              <p className="text-[11px] text-slate-400">Direct import from Google Drive, Google Photos, or Device</p>
+            <div className="min-w-0">
+              <h3 className="text-sm sm:text-base font-bold text-white truncate">Create Private Memory</h3>
+              <p className="text-[10px] sm:text-[11px] text-slate-400 truncate">Direct import from Google Drive, Google Photos, or Device</p>
             </div>
           </div>
           <button
             onClick={onClose}
-            className="w-8 h-8 rounded-full bg-white/5 hover:bg-white/10 flex items-center justify-center text-slate-400 hover:text-white transition"
+            className="w-8 h-8 rounded-full bg-white/5 hover:bg-white/10 flex items-center justify-center text-slate-400 hover:text-white transition flex-shrink-0"
           >
             <X className="w-4 h-4" />
           </button>
         </div>
 
         {/* Modal Content Form */}
-        <form onSubmit={handleSubmit} className="p-6 overflow-y-auto space-y-6 flex-1">
+        <form onSubmit={handleSubmit} className="p-3.5 sm:p-6 overflow-y-auto space-y-5 sm:space-y-6 flex-1 min-w-0">
           {/* Media Source Tab Switcher */}
           <div>
             <div className="text-xs font-semibold text-slate-300 mb-2 flex items-center justify-between">
@@ -430,7 +406,7 @@ export const UploadModal: React.FC<UploadModalProps> = ({
                   ref={fileInputRef}
                   onChange={handleLocalFiles}
                   multiple
-                  accept="image/*"
+                  accept={IMAGE_INPUT_ACCEPT}
                   className="hidden"
                 />
 
@@ -448,28 +424,48 @@ export const UploadModal: React.FC<UploadModalProps> = ({
                 )}
 
                 <div 
-                  onClick={() => fileInputRef.current?.click()}
-                  className="clay-card p-6 text-center border-2 border-dashed border-sky-400/30 flex flex-col items-center justify-center cursor-pointer hover:border-sky-400/60 transition group"
+                  onClick={() => !isUploading && fileInputRef.current?.click()}
+                  className={`clay-card p-6 text-center border-2 border-dashed flex flex-col items-center justify-center transition group ${
+                    isUploading 
+                      ? 'border-sky-400/60 bg-sky-950/30 cursor-wait' 
+                      : 'border-sky-400/30 hover:border-sky-400/60 cursor-pointer'
+                  }`}
                 >
                   <div className="w-14 h-14 rounded-2xl bg-sky-500/20 flex items-center justify-center text-sky-400 mb-2.5 group-hover:scale-110 transition-transform">
-                    <Laptop className="w-7 h-7" />
+                    {isUploading ? (
+                      <Loader2 className="w-7 h-7 animate-spin text-sky-400" />
+                    ) : (
+                      <Laptop className="w-7 h-7" />
+                    )}
                   </div>
-                  <div className="text-sm font-bold text-white">Click or drag local images here</div>
-                  <p className="text-xs text-slate-400 mt-1 max-w-sm">
-                    JPEG, PNG, WEBP, or HEIC &mdash; uploaded directly to Supabase Storage.
+                  <div className="text-sm font-bold text-white">
+                    {isUploading ? uploadStatus || 'Uploading to Supabase Storage…' : 'Click or drag local images here'}
+                  </div>
+                  {isUploading && (
+                    <div className="w-full max-w-xs mt-3 bg-slate-800 rounded-full h-1.5 overflow-hidden">
+                      <div 
+                        className="bg-gradient-to-r from-sky-400 to-teal-400 h-full transition-all duration-300"
+                        style={{ width: `${Math.max(10, uploadProgress)}%` }}
+                      />
+                    </div>
+                  )}
+                  <p className="text-xs text-slate-400 mt-1.5 max-w-sm">
+                    All image formats supported (JPG, PNG, WEBP, HEIC, AVIF, GIF, SVG, BMP, TIFF, RAW, etc.) &mdash; uploaded to Supabase Storage.
                   </p>
-                  {/* 3MB limit badge */}
-                  <div className="mt-2 flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-500/15 border border-amber-500/30 text-[11px] text-amber-300 font-mono">
-                    <span>⚠</span>
-                    <span>Max 3 MB per image</span>
+                  {/* Extension & limit badge */}
+                  <div className="mt-2 flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/15 border border-emerald-500/30 text-[11px] text-emerald-300 font-mono">
+                    <span>✓</span>
+                    <span>All image extensions supported • Max 25 MB</span>
                   </div>
-                  <button
-                    type="button"
-                    onClick={(e) => { e.stopPropagation(); fileInputRef.current?.click(); }}
-                    className="mt-3 px-4 py-1.5 rounded-xl bg-sky-500 text-white text-xs font-bold shadow-md shadow-sky-500/20"
-                  >
-                    Browse Device Files
-                  </button>
+                  {!isUploading && (
+                    <button
+                      type="button"
+                      onClick={(e) => { e.stopPropagation(); fileInputRef.current?.click(); }}
+                      className="mt-3 px-4 py-1.5 rounded-xl bg-sky-500 text-white text-xs font-bold shadow-md shadow-sky-500/20"
+                    >
+                      Browse Device Files
+                    </button>
+                  )}
                 </div>
               </div>
             )}

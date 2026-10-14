@@ -81,7 +81,7 @@ export const SidebarNav: React.FC<SidebarNavProps> = ({
   ];
 
   return (
-    <aside className="w-64 flex-shrink-0 hidden md:flex flex-col gap-6 py-6 pr-4 sticky top-16 h-[calc(100vh-4rem)] overflow-y-auto">
+    <aside className="w-64 flex-shrink-0 hidden md:flex flex-col gap-6 py-6 pr-4 sticky top-16 h-[calc(100vh-4rem)] overflow-y-auto no-scrollbar self-start">
       {/* Primary Navigation */}
       <div className="space-y-1">
         <div className="px-3 pb-2 text-[11px] font-bold uppercase tracking-wider text-slate-500">

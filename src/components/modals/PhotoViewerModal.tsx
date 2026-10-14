@@ -20,6 +20,7 @@ import {
   Download
 } from 'lucide-react';
 import { Post, User } from '../../types';
+import { FALLBACK_PHOTO_URL } from '../../lib/dbService';
 
 interface PhotoViewerModalProps {
   isOpen: boolean;
@@ -93,35 +94,35 @@ export const PhotoViewerModal: React.FC<PhotoViewerModalProps> = ({
       <div 
         className="absolute inset-0 opacity-25 filter blur-3xl scale-125 transition-all duration-700 pointer-events-none"
         style={{
-          backgroundImage: `url(${currentPhoto})`,
+          backgroundImage: `url(${currentPhoto?.startsWith('blob:') ? FALLBACK_PHOTO_URL : currentPhoto})`,
           backgroundPosition: 'center',
           backgroundSize: 'cover'
         }}
       />
 
       {/* Top Floating Spatial HUD Bar (Liquid Glass) */}
-      <div className="absolute top-6 inset-x-6 z-30 flex items-center justify-between pointer-events-none">
+      <div className="absolute top-3 inset-x-3 sm:top-6 sm:inset-x-6 z-30 flex items-center justify-between pointer-events-none gap-2">
         {/* Author information & Spatial badge */}
-        <div className="pointer-events-auto liquid-glass-pill px-4 py-2 rounded-2xl flex items-center gap-3">
+        <div className="pointer-events-auto liquid-glass-pill px-2.5 sm:px-4 py-1.5 sm:py-2 rounded-2xl flex items-center gap-2 sm:gap-3 min-w-0 max-w-[62%] sm:max-w-none">
           {post && (
             <>
               <img 
                 src={post.author.avatar} 
                 alt={post.author.name} 
-                className="w-8 h-8 rounded-xl object-cover border border-white/20"
+                className="w-7 h-7 sm:w-8 sm:h-8 rounded-xl object-cover border border-white/20 flex-shrink-0"
               />
-              <div className="text-left">
-                <div className="text-xs font-bold text-white flex items-center gap-1.5">
-                  <span>{post.author.name}</span>
+              <div className="text-left min-w-0">
+                <div className="text-xs font-bold text-white flex items-center gap-1.5 truncate">
+                  <span className="truncate">{post.author.name}</span>
                   {post.location && (
-                    <span className="text-slate-400 font-normal flex items-center gap-0.5 text-[10px]">
-                      <MapPin className="w-2.5 h-2.5 text-sky-400" />
+                    <span className="text-slate-400 font-normal hidden sm:flex items-center gap-0.5 text-[10px] truncate">
+                      <MapPin className="w-2.5 h-2.5 text-sky-400 flex-shrink-0" />
                       {post.location}
                     </span>
                   )}
                 </div>
-                <div className="text-[10px] text-slate-400">
-                  {post.createdAt} • Photo {currentIndex + 1} of {photos.length}
+                <div className="text-[10px] text-slate-400 truncate">
+                  {post.createdAt} • Photo {currentIndex + 1}/{photos.length}
                 </div>
               </div>
             </>
@@ -129,11 +130,11 @@ export const PhotoViewerModal: React.FC<PhotoViewerModalProps> = ({
         </div>
 
         {/* Spatial / Liquid Glass Mode Toggle & Close */}
-        <div className="pointer-events-auto flex items-center gap-2">
+        <div className="pointer-events-auto flex items-center gap-1.5 sm:gap-2 flex-shrink-0">
           {/* Spatial 3D Toggle */}
           <button
             onClick={() => setIsSpatialMode(!isSpatialMode)}
-            className={`px-3 py-1.5 rounded-2xl text-xs font-semibold flex items-center gap-1.5 transition-all ${
+            className={`px-2.5 sm:px-3 py-1.5 rounded-2xl text-xs font-semibold flex items-center gap-1.5 transition-all ${
               isSpatialMode 
                 ? 'liquid-glass-pill text-purple-200 border-purple-400/50' 
                 : 'bg-white/10 text-slate-400 hover:text-white'
@@ -141,16 +142,17 @@ export const PhotoViewerModal: React.FC<PhotoViewerModalProps> = ({
             title="Toggle Spatial 3D Parallax"
           >
             <Sparkles className="w-3.5 h-3.5 text-purple-300" />
-            <span>Spatial Depth {isSpatialMode ? 'ON' : 'OFF'}</span>
+            <span className="hidden sm:inline">Spatial Depth </span>
+            <span>{isSpatialMode ? '3D' : '2D'}</span>
           </button>
 
           {/* Close Viewer */}
           <button
             onClick={onClose}
-            className="w-10 h-10 rounded-2xl bg-white/10 hover:bg-white/20 text-slate-200 hover:text-white flex items-center justify-center transition"
+            className="w-8 h-8 sm:w-10 sm:h-10 rounded-2xl bg-white/10 hover:bg-white/20 text-slate-200 hover:text-white flex items-center justify-center transition"
             title="Close Viewer (Esc)"
           >
-            <X className="w-5 h-5" />
+            <X className="w-4 h-4 sm:w-5 sm:h-5" />
           </button>
         </div>
       </div>
@@ -173,8 +175,9 @@ export const PhotoViewerModal: React.FC<PhotoViewerModalProps> = ({
           {/* Main Photo Layer (Z: 0) */}
           <div className="relative rounded-2xl overflow-hidden shadow-2xl border border-white/20 bg-black/60">
             <img 
-              src={currentPhoto} 
+              src={currentPhoto?.startsWith('blob:') ? FALLBACK_PHOTO_URL : currentPhoto} 
               alt="Memory Full View" 
+              onError={(e) => { e.currentTarget.src = FALLBACK_PHOTO_URL; }}
               className="max-h-[75vh] max-w-[85vw] object-contain transition-all duration-300"
             />
           </div>
@@ -202,25 +205,25 @@ export const PhotoViewerModal: React.FC<PhotoViewerModalProps> = ({
         <>
           <button
             onClick={() => setCurrentIndex(prev => (prev > 0 ? prev - 1 : photos.length - 1))}
-            className="absolute left-6 top-1/2 -translate-y-1/2 p-3.5 rounded-full liquid-glass-pill text-white hover:scale-110 active:scale-95 transition z-30"
+            className="absolute left-2 sm:left-6 top-1/2 -translate-y-1/2 p-2 sm:p-3.5 rounded-full liquid-glass-pill text-white hover:scale-110 active:scale-95 transition z-30"
             title="Previous (Arrow Left)"
           >
-            <ChevronLeft className="w-6 h-6" />
+            <ChevronLeft className="w-5 h-5 sm:w-6 sm:h-6" />
           </button>
 
           <button
             onClick={() => setCurrentIndex(prev => (prev < photos.length - 1 ? prev + 1 : 0))}
-            className="absolute right-6 top-1/2 -translate-y-1/2 p-3.5 rounded-full liquid-glass-pill text-white hover:scale-110 active:scale-95 transition z-30"
+            className="absolute right-2 sm:right-6 top-1/2 -translate-y-1/2 p-2 sm:p-3.5 rounded-full liquid-glass-pill text-white hover:scale-110 active:scale-95 transition z-30"
             title="Next (Arrow Right)"
           >
-            <ChevronRight className="w-6 h-6" />
+            <ChevronRight className="w-5 h-5 sm:w-6 sm:h-6" />
           </button>
         </>
       )}
 
       {/* Bottom Floating Liquid Glass Action Dock */}
-      <div className="absolute bottom-6 inset-x-0 flex justify-center z-30">
-        <div className="liquid-glass-dock px-5 py-2.5 rounded-full flex items-center gap-4 text-white shadow-2xl">
+      <div className="absolute bottom-3 sm:bottom-6 inset-x-0 flex justify-center z-30 px-2 pointer-events-none">
+        <div className="pointer-events-auto liquid-glass-dock px-3 sm:px-5 py-1.5 sm:py-2.5 rounded-full flex items-center gap-2 sm:gap-4 text-white shadow-2xl max-w-[calc(100vw-1rem)] overflow-x-auto no-scrollbar">
           {/* Zoom controls */}
           <button
             onClick={() => setZoomLevel(prev => Math.min(prev + 0.25, 2.5))}

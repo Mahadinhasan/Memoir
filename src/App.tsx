@@ -602,7 +602,7 @@ export function App() {
       />
 
       {/* Main Body Container */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 flex-1 w-full flex">
+      <div className="max-w-7xl mx-auto px-3 sm:px-6 flex-1 w-full flex min-w-0">
         {/* 2. Left Desktop Navigation Sidebar */}
         <SidebarNav
           activeTab={activeTab}
@@ -612,7 +612,7 @@ export function App() {
         />
 
         {/* 3. Center Main Content Area */}
-        <main className="flex-1 min-w-0 py-6 md:px-6">
+        <main className="flex-1 min-w-0 py-4 sm:py-6 pb-28 md:pb-8 md:px-6 w-full max-w-full">
           {/* Active Style Filter Alert Bar if user is filtering */}
           {activeStyleFilter && (
             <div className="mb-4 p-3 rounded-2xl bg-sky-500/15 border border-sky-400/30 flex items-center justify-between text-xs text-sky-200 animate-fadeIn">
@@ -746,7 +746,7 @@ export function App() {
               </div>
 
               {/* Right Sidebar: Spotlight & 10 UI Styles Inspector Widget */}
-              <div className="hidden lg:block lg:col-span-4 space-y-6">
+              <div className="hidden lg:block lg:col-span-4 space-y-6 sticky top-20 self-start">
                 {/* 10 UI Styles Master Card */}
                 <div className="minimal-feed-card p-5 relative overflow-hidden">
                   <div className="flex items-center justify-between mb-3">

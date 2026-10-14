@@ -50,7 +50,7 @@ interface ProfileRow {
   memories_count: number;
 }
 
-// ─── Converters ───────────────────────────────────────────────────────────────
+export const FALLBACK_PHOTO_URL = 'https://images.unsplash.com/photo-1511632765486-a01980e01a18?auto=format&fit=crop&w=1200&q=80';
 
 function profileToUser(p: ProfileRow): User {
   return {
@@ -99,11 +99,30 @@ function rowToPost(row: PostRow, currentUserId?: string): Post {
   else if (diffMins < 1440) createdAt = `${Math.floor(diffMins / 60)}h ago`;
   else createdAt = createdDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
 
+  // Sanitize photos: replace dead ephemeral blob: URLs with valid circle fallback
+  const rawPhotos = Array.isArray(row.photos) ? row.photos : [];
+  const hadDeadBlob = rawPhotos.some(u => typeof u === 'string' && u.startsWith('blob:'));
+  const photos = rawPhotos.map(url => {
+    if (typeof url === 'string' && url.startsWith('blob:')) {
+      return FALLBACK_PHOTO_URL;
+    }
+    return url;
+  }).filter((u): u is string => Boolean(u && typeof u === 'string'));
+
+  // If the current user authored this post and it has a dead blob URL, auto-heal in Supabase
+  if (hadDeadBlob && currentUserId && row.author_id === currentUserId) {
+    supabase.from('posts').update({ photos }).eq('id', row.id).then(({ error: e }) => {
+      if (!e) {
+        console.log(`[DB] Successfully healed dead blob URLs for post ${row.id}`);
+      }
+    });
+  }
+
   return {
     id: row.id,
     author,
     caption: row.caption ?? '',
-    photos: row.photos ?? [],
+    photos,
     location: row.location ?? '',
     variant: row.variant ?? 'minimal',
     celebrationTitle: row.celebration_title ?? undefined,

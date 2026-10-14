@@ -99,12 +99,12 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
         <div className="lg:col-span-7 space-y-6">
           {/* Cryptographic Invite Link Generator */}
           <div className="brutal-card p-5 bg-white">
-            <div className="flex items-center justify-between pb-3 border-b-2 border-black">
+            <div className="flex flex-wrap sm:flex-nowrap items-start sm:items-center justify-between pb-3 border-b-2 border-black gap-2">
               <div className="flex items-center gap-2 font-mono font-bold text-sm uppercase">
-                <Key className="w-4 h-4 text-black" />
+                <Key className="w-4 h-4 text-black flex-shrink-0" />
                 <span>Single-Use Cryptographic Invite Token</span>
               </div>
-              <span className="brutal-tag bg-yellow-200">
+              <span className="brutal-tag bg-yellow-200 flex-shrink-0">
                 TTL: 48 HOURS
               </span>
             </div>
@@ -211,12 +211,12 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
                 const isActive = userStatuses[f.id] ?? true;
 
                 return (
-                  <div key={f.id} className="p-3 border-2 border-black flex items-center justify-between bg-slate-50">
-                    <div className="flex items-center gap-2.5">
-                      <img src={f.avatar} alt={f.name} className="w-8 h-8 border border-black object-cover" />
-                      <div>
-                        <span className="font-mono font-bold text-xs block text-black">{f.name}</span>
-                        <span className="text-[10px] font-mono text-black/60">Role: {f.role}</span>
+                  <div key={f.id} className="p-3 border-2 border-black flex flex-wrap sm:flex-nowrap items-center justify-between gap-3 bg-slate-50">
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      <img src={f.avatar} alt={f.name} className="w-8 h-8 border border-black object-cover flex-shrink-0" />
+                      <div className="min-w-0">
+                        <span className="font-mono font-bold text-xs block text-black truncate">{f.name}</span>
+                        <span className="text-[10px] font-mono text-black/60 truncate block">Role: {f.role}</span>
                       </div>
                     </div>
 

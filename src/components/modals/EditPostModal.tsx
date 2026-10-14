@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { 
   X, 
   Save, 
@@ -9,11 +9,19 @@ import {
   Sparkles, 
   HardDrive, 
   Laptop, 
-  Link as LinkIcon 
+  Link as LinkIcon,
+  Loader2,
+  AlertCircle
 } from 'lucide-react';
 import { Post } from '../../types';
 import { GoogleMediaPicker } from './GoogleMediaPicker';
 import { ALL_GALLERY_PHOTOS } from '../../data/galleryPhotos';
+import { 
+  uploadMultipleImages, 
+  validateImageFile, 
+  IMAGE_INPUT_ACCEPT, 
+  processImageForDisplay 
+} from '../../lib/imageService';
 
 interface EditPostModalProps {
   isOpen: boolean;
@@ -28,31 +36,61 @@ export const EditPostModal: React.FC<EditPostModalProps> = ({
   onClose,
   onSave
 }) => {
-  if (!isOpen || !post) return null;
-
-  const [caption, setCaption] = useState(post.caption);
-  const [location, setLocation] = useState(post.location || '');
-  const [variant, setVariant] = useState<'minimal' | 'skeuomorphic' | 'maximalist' | 'spatial'>(post.variant || 'minimal');
-  const [celebrationTitle, setCelebrationTitle] = useState(post.celebrationTitle || '');
-  const [photos, setPhotos] = useState<string[]>(post.photos || []);
+  const [caption, setCaption] = useState(post?.caption || '');
+  const [location, setLocation] = useState(post?.location || '');
+  const [variant, setVariant] = useState<'minimal' | 'skeuomorphic' | 'maximalist' | 'spatial'>(post?.variant || 'minimal');
+  const [celebrationTitle, setCelebrationTitle] = useState(post?.celebrationTitle || '');
+  const [photos, setPhotos] = useState<string[]>(post?.photos || []);
   const [activeMediaSource, setActiveMediaSource] = useState<'none' | 'gallery' | 'device' | 'drive' | 'photos' | 'url'>('none');
   const [customUrl, setCustomUrl] = useState('');
+  const [isUploading, setIsUploading] = useState(false);
+  const [uploadError, setUploadError] = useState<string | null>(null);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const handleLocalFiles = (e: React.ChangeEvent<HTMLInputElement>) => {
+  useEffect(() => {
+    if (post) {
+      setCaption(post.caption || '');
+      setLocation(post.location || '');
+      setVariant(post.variant || 'minimal');
+      setCelebrationTitle(post.celebrationTitle || '');
+      setPhotos(post.photos || []);
+      setUploadError(null);
+    }
+  }, [post]);
+
+  if (!isOpen || !post) return null;
+
+  const handleLocalFiles = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (!files || files.length === 0) return;
 
-    Array.from(files).forEach((file) => {
-      const reader = new FileReader();
-      reader.onload = (event) => {
-        if (event.target?.result) {
-          setPhotos(prev => [...prev, event.target!.result as string]);
-        }
-      };
-      reader.readAsDataURL(file);
-    });
+    setIsUploading(true);
+    setUploadError(null);
+
+    const validFiles: File[] = [];
+    for (const file of Array.from(files)) {
+      const err = validateImageFile(file);
+      if (err) {
+        setUploadError(err);
+      } else {
+        const processed = await processImageForDisplay(file);
+        validFiles.push(processed);
+      }
+    }
+
+    if (validFiles.length > 0) {
+      const { urls, errors } = await uploadMultipleImages(validFiles, 'posts');
+      if (errors.length > 0) {
+        setUploadError(errors.join(', '));
+      }
+      if (urls.length > 0) {
+        setPhotos(prev => [...prev, ...urls]);
+      }
+    }
+
+    setIsUploading(false);
+    e.target.value = '';
   };
 
   const handleAddCustomUrl = (e: React.FormEvent) => {
@@ -148,9 +186,25 @@ export const EditPostModal: React.FC<EditPostModalProps> = ({
               ref={fileInputRef}
               onChange={handleLocalFiles}
               multiple
-              accept="image/*"
+              accept={IMAGE_INPUT_ACCEPT}
               className="hidden"
             />
+
+            {/* Upload status indicator */}
+            {isUploading && (
+              <div className="p-2.5 rounded-xl bg-sky-500/15 border border-sky-500/30 flex items-center gap-2 text-xs text-sky-300">
+                <Loader2 className="w-4 h-4 animate-spin text-sky-400" />
+                <span>Uploading image(s) to Supabase Storage…</span>
+              </div>
+            )}
+
+            {/* Upload error banner */}
+            {uploadError && (
+              <div className="p-2.5 rounded-xl bg-rose-500/15 border border-rose-500/30 flex items-start gap-2 text-xs text-rose-300 animate-fadeIn">
+                <AlertCircle className="w-4 h-4 text-rose-400 flex-shrink-0 mt-0.5" />
+                <p>{uploadError}</p>
+              </div>
+            )}
 
             {/* Gallery 41 Drawer */}
             {activeMediaSource === 'gallery' && (

@@ -70,7 +70,7 @@ export const DatabaseLiveIndicator: React.FC<DatabaseLiveIndicatorProps> = ({
       {/* Top Header Pill */}
       <button
         onClick={() => setIsModalOpen(true)}
-        className={`flex items-center gap-2 px-3 py-1.5 rounded-full bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/30 text-emerald-300 text-xs font-medium transition-all shadow-sm ${className}`}
+        className={`flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-3 py-1.5 rounded-full bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/30 text-emerald-300 text-xs font-medium transition-all shadow-sm ${className}`}
         title="Supabase Database & Storage Live Status"
       >
         <span className="relative flex h-2 w-2">
@@ -78,10 +78,11 @@ export const DatabaseLiveIndicator: React.FC<DatabaseLiveIndicatorProps> = ({
           <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
         </span>
         <div className="flex items-center gap-1.5">
-          <Database className="w-3.5 h-3.5 text-emerald-400" />
-          <span className="hidden sm:inline font-mono font-bold text-[11px]">DB Live</span>
+          <Database className="w-3.5 h-3.5 text-emerald-400 flex-shrink-0" />
+          <span className="font-mono font-bold text-[11px]">DB</span>
+          <span className="hidden sm:inline font-mono font-bold text-[11px]">Live</span>
           <span className="text-slate-500 hidden sm:inline">•</span>
-          <span className="font-mono text-[10px] text-emerald-400">3MB Storage</span>
+          <span className="hidden sm:inline font-mono text-[10px] text-emerald-400">25MB Storage</span>
         </div>
       </button>
 

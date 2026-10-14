@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { 
   Heart, 
   MessageCircle, 
@@ -21,6 +21,7 @@ import {
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { Post, User } from '../../types';
+import { FALLBACK_PHOTO_URL } from '../../lib/dbService';
 
 interface FeedPostProps {
   post: Post;
@@ -53,6 +54,12 @@ export const FeedPost: React.FC<FeedPostProps> = ({
   const safePhotoIndex = post.photos && post.photos.length > 0 
     ? Math.min(Math.max(0, photoIndex), post.photos.length - 1) 
     : 0;
+  const [imageError, setImageError] = useState(false);
+
+  useEffect(() => {
+    setImageError(false);
+  }, [post.photos, safePhotoIndex]);
+
   const [showMenu, setShowMenu] = useState(false);
   const cardRef = useRef<HTMLDivElement>(null);
 
@@ -313,11 +320,20 @@ export const FeedPost: React.FC<FeedPostProps> = ({
           onClick={() => onOpenPhotoViewer(post.photos, safePhotoIndex, post)}
           className="relative group rounded-2xl overflow-hidden bg-black/40 cursor-zoom-in select-none aspect-[4/3] sm:aspect-[16/10]"
         >
-          <img 
-            src={post.photos[safePhotoIndex]} 
-            alt={`Memory by ${post.author.name}`} 
-            className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-[1.02]"
-          />
+          {(() => {
+            const rawPhoto = post.photos[safePhotoIndex];
+            const isInvalid = imageError || !rawPhoto || rawPhoto.startsWith('blob:');
+            const displayPhoto = isInvalid ? FALLBACK_PHOTO_URL : rawPhoto;
+
+            return (
+              <img 
+                src={displayPhoto} 
+                alt={`Memory by ${post.author.name}`} 
+                onError={() => setImageError(true)}
+                className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-[1.02]"
+              />
+            );
+          })()}
 
           {/* Top Info Overlay: Photo Counter + Spatial View (READ) */}
           <div className="absolute top-3 left-3 flex items-center gap-2 z-10">

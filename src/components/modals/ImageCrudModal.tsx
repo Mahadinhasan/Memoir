@@ -19,7 +19,7 @@ import {
 } from 'lucide-react';
 import { Post } from '../../types';
 import { ALL_GALLERY_PHOTOS, GalleryPhoto } from '../../data/galleryPhotos';
-import { uploadImageToSupabase, validateImageFile } from '../../lib/imageService';
+import { uploadImageToSupabase, validateImageFile, IMAGE_INPUT_ACCEPT } from '../../lib/imageService';
 
 interface ImageCrudModalProps {
   isOpen: boolean;
@@ -40,9 +40,7 @@ export const ImageCrudModal: React.FC<ImageCrudModalProps> = ({
   onSavePhoto,
   onDeleteCurrentPhoto
 }) => {
-  if (!isOpen || !post) return null;
-
-  const currentPhoto = post.photos && post.photos.length > photoIndex ? post.photos[photoIndex] : null;
+  const currentPhoto = post?.photos && post.photos.length > photoIndex ? post.photos[photoIndex] : null;
 
   const [activeTab, setActiveTab] = useState<'gallery' | 'upload' | 'google' | 'url'>('gallery');
   const [selectedPhotoUrl, setSelectedPhotoUrl] = useState<string>(
@@ -55,6 +53,8 @@ export const ImageCrudModal: React.FC<ImageCrudModalProps> = ({
   const [isUploading, setIsUploading] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  if (!isOpen || !post) return null;
 
   // Gallery categories
   const categories = ['All', 'Portraits & Riverside', 'Summer Sunshine', 'Green Canopy', 'Afternoon Golden'];
@@ -103,34 +103,34 @@ export const ImageCrudModal: React.FC<ImageCrudModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-xl animate-fadeIn">
-      <div className="relative w-full max-w-3xl bg-[#0b1120] border border-white/15 rounded-3xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-black/80 backdrop-blur-xl animate-fadeIn">
+      <div className="relative w-full max-w-3xl bg-[#0b1120] border border-white/15 rounded-3xl shadow-2xl overflow-hidden flex flex-col max-h-[92vh]">
         {/* Header Bar (Spatial / Liquid Glass style) */}
-        <div className="px-6 py-4 border-b border-white/10 flex items-center justify-between bg-slate-900/90 backdrop-blur-md">
-          <div className="flex items-center gap-3">
-            <div className={`w-10 h-10 rounded-2xl flex items-center justify-center shadow-lg ${
+        <div className="px-4 sm:px-6 py-3 sm:py-4 border-b border-white/10 flex items-center justify-between bg-slate-900/90 backdrop-blur-md gap-2">
+          <div className="flex items-center gap-2.5 sm:gap-3 min-w-0">
+            <div className={`w-9 h-9 sm:w-10 sm:h-10 rounded-2xl flex items-center justify-center shadow-lg flex-shrink-0 ${
               mode === 'replace' 
                 ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30' 
                 : 'bg-sky-500/20 text-sky-300 border border-sky-500/30'
             }`}>
-              {mode === 'replace' ? <RefreshCw className="w-5 h-5" /> : <Plus className="w-5 h-5" />}
+              {mode === 'replace' ? <RefreshCw className="w-4 h-4 sm:w-5 sm:h-5" /> : <Plus className="w-4 h-4 sm:w-5 sm:h-5" />}
             </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <h3 className="text-base font-bold text-white">
+            <div className="min-w-0">
+              <div className="flex items-center gap-2 flex-wrap">
+                <h3 className="text-sm sm:text-base font-bold text-white truncate">
                   {mode === 'replace' ? `Replace Photo #${photoIndex + 1}` : 'Add Photo to Memory'}
                 </h3>
                 <span className="px-2 py-0.5 rounded-full bg-white/10 text-[10px] font-mono text-slate-300 border border-white/10">
                   {post.author.username}
                 </span>
               </div>
-              <p className="text-xs text-slate-400 truncate max-w-md">
+              <p className="text-xs text-slate-400 truncate max-w-xs sm:max-w-md">
                 Memory: "{post.caption || 'Circle photo'}"
               </p>
             </div>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1.5 sm:gap-2 flex-shrink-0">
             {mode === 'replace' && onDeleteCurrentPhoto && currentPhoto && (
               <button
                 type="button"
@@ -140,7 +140,7 @@ export const ImageCrudModal: React.FC<ImageCrudModalProps> = ({
                     onClose();
                   }
                 }}
-                className="px-3 py-1.5 rounded-xl bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 border border-rose-500/30 text-xs font-semibold flex items-center gap-1.5 transition"
+                className="px-2.5 sm:px-3 py-1.5 rounded-xl bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 border border-rose-500/30 text-xs font-semibold flex items-center gap-1.5 transition"
                 title="Delete this photo immediately"
               >
                 <Trash2 className="w-3.5 h-3.5" />
@@ -150,23 +150,23 @@ export const ImageCrudModal: React.FC<ImageCrudModalProps> = ({
 
             <button
               onClick={onClose}
-              className="w-9 h-9 rounded-xl bg-white/5 hover:bg-white/15 flex items-center justify-center text-slate-400 hover:text-white transition"
+              className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-white/5 hover:bg-white/15 flex items-center justify-center text-slate-400 hover:text-white transition"
               title="Close modal"
             >
-              <X className="w-5 h-5" />
+              <X className="w-4 h-4 sm:w-5 sm:h-5" />
             </button>
           </div>
         </div>
 
         {/* Comparison Preview (When in Replace Mode) */}
         {mode === 'replace' && currentPhoto && (
-          <div className="px-6 py-3 bg-slate-950/70 border-b border-white/5 flex items-center justify-between gap-4">
+          <div className="px-4 sm:px-6 py-2.5 sm:py-3 bg-slate-950/70 border-b border-white/5 flex flex-wrap sm:flex-nowrap items-center justify-between gap-3">
             <div className="flex items-center gap-3">
               <div className="relative">
                 <img 
                   src={currentPhoto} 
                   alt="Current" 
-                  className="w-14 h-14 rounded-xl object-cover border border-white/20 shadow-md"
+                  className="w-12 h-12 sm:w-14 sm:h-14 rounded-xl object-cover border border-white/20 shadow-md"
                 />
                 <span className="absolute -bottom-1 -right-1 px-1.5 py-0.5 rounded-md bg-slate-900/90 text-[9px] font-mono text-slate-400 border border-white/10">
                   Current
@@ -205,7 +205,7 @@ export const ImageCrudModal: React.FC<ImageCrudModalProps> = ({
         )}
 
         {/* Source Navigation Tabs */}
-        <div className="px-6 pt-3 pb-1 border-b border-white/10 bg-slate-900/40 flex items-center gap-2 overflow-x-auto">
+        <div className="px-3 sm:px-6 pt-3 pb-1 border-b border-white/10 bg-slate-900/40 flex items-center gap-2 overflow-x-auto no-scrollbar">
           <button
             type="button"
             onClick={() => setActiveTab('gallery')}
@@ -354,7 +354,7 @@ export const ImageCrudModal: React.FC<ImageCrudModalProps> = ({
               <input
                 ref={fileInputRef}
                 type="file"
-                accept="image/*"
+                accept={IMAGE_INPUT_ACCEPT}
                 onChange={handleFileUpload}
                 className="hidden"
               />
@@ -386,12 +386,12 @@ export const ImageCrudModal: React.FC<ImageCrudModalProps> = ({
                   {isUploading ? 'Uploading to Supabase…' : 'Click to browse or drop an image from your device'}
                 </h4>
                 <p className="text-xs text-slate-400 max-w-sm mb-3">
-                  JPG, PNG, WEBP, or HEIC — stored in Supabase Storage.
+                  All image extensions supported (JPG, PNG, WEBP, HEIC, AVIF, GIF, SVG, BMP, TIFF, RAW, etc.) — stored in Supabase Storage.
                 </p>
-                {/* 3MB limit badge */}
-                <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-500/15 border border-amber-500/30 text-[11px] text-amber-300 font-mono mb-3">
-                  <span>⚠</span>
-                  <span>Max 3 MB per image</span>
+                {/* 25MB limit badge */}
+                <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/15 border border-emerald-500/30 text-[11px] text-emerald-300 font-mono mb-3">
+                  <span>✓</span>
+                  <span>All image extensions supported • Max 25 MB</span>
                 </div>
                 {!isUploading && (
                   <button

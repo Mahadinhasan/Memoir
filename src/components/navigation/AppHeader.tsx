@@ -85,22 +85,14 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
         </div>
 
         {/* Right Action Icons */}
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2 sm:gap-3 flex-shrink-0">
           {/* Live Supabase Database & Storage Indicator */}
           <DatabaseLiveIndicator currentUserEmail="Mahadin@Memo.com" />
-
-          {/* Style System Inspector Button (Highlights all 10 styles) */}
-          <button
-            onClick={onOpenStyleGuide}
-            className="hidden sm:flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-gradient-to-r from-sky-500/20 via-indigo-500/20 to-purple-500/20 hover:from-sky-500/30 hover:via-indigo-500/30 hover:to-purple-500/30 border border-sky-400/30 text-sky-200 text-xs font-semibold shadow-sm transition-all"
-            title="Inspect 10 UI Styles Integration"
-          >
-          </button>
 
           {/* Quick Upload Button (Liquid Glass Button) */}
           <button
             onClick={onOpenUpload}
-            className="liquid-glass-pill px-3.5 sm:px-4 py-1.5 rounded-2xl text-xs font-bold text-white flex items-center gap-1.5 transition-transform active:scale-95"
+            className="hidden sm:flex liquid-glass-pill px-3.5 sm:px-4 py-1.5 rounded-2xl text-xs font-bold text-white items-center gap-1.5 transition-transform active:scale-95"
           >
             <Plus className="w-4 h-4 text-sky-300" />
             <span className="hidden sm:inline">New Memory</span>
@@ -113,7 +105,7 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
                 setShowNotifications(!showNotifications);
                 setShowUserMenu(false);
               }}
-              className="relative p-2.5 rounded-2xl bg-white/5 hover:bg-white/10 text-slate-300 hover:text-white border border-white/10 transition"
+              className="relative p-2 sm:p-2.5 rounded-2xl bg-white/5 hover:bg-white/10 text-slate-300 hover:text-white border border-white/10 transition"
               title="Notifications"
             >
               <Bell className="w-4 h-4" />
@@ -126,7 +118,7 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
 
             {/* Glassmorphism Notification Popover */}
             {showNotifications && (
-              <div className="absolute right-0 mt-3 w-80 sm:w-96 glass-panel rounded-3xl p-4 shadow-2xl border border-white/15 animate-fadeIn z-50">
+              <div className="absolute right-0 mt-3 w-[calc(100vw-2rem)] sm:w-96 max-w-sm glass-panel rounded-3xl p-4 shadow-2xl border border-white/15 animate-fadeIn z-50">
                 <div className="flex items-center justify-between pb-3 border-b border-white/10">
                   <div className="flex items-center gap-2">
                     <span className="font-bold text-sm text-white">Circle Activity</span>
@@ -200,7 +192,7 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
 
             {/* Glassmorphic User & Auth Menu Popover */}
             {showUserMenu && (
-              <div className="absolute right-0 mt-3 w-72 glass-panel rounded-3xl p-4 shadow-2xl border border-white/15 animate-fadeIn z-50">
+              <div className="absolute right-0 mt-3 w-[calc(100vw-2rem)] sm:w-72 max-w-xs glass-panel rounded-3xl p-4 shadow-2xl border border-white/15 animate-fadeIn z-50">
                 <div className="flex items-center gap-3 pb-3 border-b border-white/10">
                   <img 
                     src={currentUser.avatar} 

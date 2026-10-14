@@ -15,10 +15,42 @@
     --text-secondary: #64748b;
   }
 
+  *, *::before, *::after {
+    box-sizing: border-box;
+  }
+
+  html {
+    overflow-x: clip;
+    width: 100%;
+    max-width: 100vw;
+    -webkit-text-size-adjust: 100%;
+  }
+
   body {
+    overflow-x: clip;
+    width: 100%;
+    max-width: 100vw;
+    position: relative;
     background-color: var(--bg-main);
     color: var(--text-primary);
     font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+  }
+
+  #root {
+    overflow-x: clip;
+    width: 100%;
+    max-width: 100vw;
+    position: relative;
+    min-height: 100vh;
+  }
+
+  img, video, canvas, svg {
+    max-width: 100%;
+  }
+
+  p, span, h1, h2, h3, h4, h5, h6, a {
+    overflow-wrap: break-word;
+    word-break: break-word;
   }
 }
 
@@ -299,8 +331,15 @@
 /* --- 9. BENTO GRID (Modular Dashboard Highlights) --- */
 .bento-grid {
   display: grid;
-  grid-template-columns: repeat(12, minmax(0, 1fr));
+  grid-template-columns: 1fr;
   gap: 16px;
+  width: 100%;
+}
+
+@media (min-width: 640px) {
+  .bento-grid {
+    grid-template-columns: repeat(12, minmax(0, 1fr));
+  }
 }
 
 .bento-card {

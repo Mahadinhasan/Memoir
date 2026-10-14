@@ -48,36 +48,36 @@ export const PostComposer: React.FC<PostComposerProps> = ({
   };
 
   return (
-    <div className="minimal-feed-card p-4 sm:p-5 shadow-xl relative overflow-hidden backdrop-blur-md">
-      {/* Top Author & Privacy */}
-      <div className="flex items-center justify-between pb-3 border-b border-white/5">
-        <div className="flex items-center gap-3">
+    <div className="minimal-feed-card p-3 sm:p-5 shadow-xl relative overflow-hidden backdrop-blur-md">
+      {/* Top Author & Privacy - Mobile shows only profile (Avatar + Name) and mode */}
+      <div className="flex items-center justify-between pb-2.5 sm:pb-3 border-b border-white/5 gap-2">
+        <div className="flex items-center gap-2 sm:gap-3 min-w-0">
           <img 
             src={currentUser.avatar} 
             alt={currentUser.name} 
-            className="w-10 h-10 rounded-2xl object-cover border border-sky-400/30"
+            className="w-8 h-8 sm:w-10 sm:h-10 rounded-xl sm:rounded-2xl object-cover border border-sky-400/30 flex-shrink-0"
           />
-          <div>
-            <div className="text-sm font-semibold text-white flex items-center gap-1.5">
-              <span>{currentUser.name}</span>
-              <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+          <div className="min-w-0">
+            <div className="text-xs sm:text-sm font-semibold text-white flex items-center gap-1.5">
+              <span className="truncate">{currentUser.name}</span>
+              <span className="hidden sm:inline-flex text-[10px] font-mono px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 flex-shrink-0">
                 {currentUser.role === 'admin' ? 'Circle Admin' : 'Member'}
               </span>
             </div>
-            <div className="text-[11px] text-slate-400 flex items-center gap-1">
-              <Lock className="w-2.5 h-2.5 text-slate-400" />
-              <span>Visible only to approved circle</span>
+            <div className="hidden sm:flex text-[11px] text-slate-400 items-center gap-1">
+              <Lock className="w-2.5 h-2.5 text-slate-400 flex-shrink-0" />
+              <span className="truncate">Visible only to approved circle</span>
             </div>
           </div>
         </div>
 
-        {/* Style Variant Selector for the post */}
-        <div className="flex items-center gap-1 bg-black/40 p-1 rounded-xl border border-white/10 text-[11px]">
+        {/* Style Variant Selector for the post (Clean, Polaroid, Celebration) */}
+        <div className="flex items-center gap-0.5 sm:gap-1 bg-black/40 p-1 rounded-xl border border-white/10 text-[10px] sm:text-[11px] flex-shrink-0">
           <button
             type="button"
             onClick={() => setStyleMode('minimal')}
             className={`px-2 py-0.5 rounded-lg transition ${
-              styleMode === 'minimal' ? 'bg-sky-500 text-white font-semibold' : 'text-slate-400 hover:text-white'
+              styleMode === 'minimal' ? 'bg-sky-500 text-white font-semibold shadow-sm' : 'text-slate-400 hover:text-white'
             }`}
           >
             Clean
@@ -86,7 +86,7 @@ export const PostComposer: React.FC<PostComposerProps> = ({
             type="button"
             onClick={() => setStyleMode('skeuomorphic')}
             className={`px-2 py-0.5 rounded-lg transition ${
-              styleMode === 'skeuomorphic' ? 'bg-amber-600 text-white font-semibold' : 'text-slate-400 hover:text-white'
+              styleMode === 'skeuomorphic' ? 'bg-amber-600 text-white font-semibold shadow-sm' : 'text-slate-400 hover:text-white'
             }`}
           >
             Polaroid
@@ -95,7 +95,7 @@ export const PostComposer: React.FC<PostComposerProps> = ({
             type="button"
             onClick={() => setStyleMode('maximalist')}
             className={`px-2 py-0.5 rounded-lg transition ${
-              styleMode === 'maximalist' ? 'bg-pink-600 text-white font-semibold' : 'text-slate-400 hover:text-white'
+              styleMode === 'maximalist' ? 'bg-pink-600 text-white font-semibold shadow-sm' : 'text-slate-400 hover:text-white'
             }`}
           >
             Celebration
@@ -104,24 +104,24 @@ export const PostComposer: React.FC<PostComposerProps> = ({
       </div>
 
       {/* Caption Textarea */}
-      <form onSubmit={handleQuickPublish} className="mt-3">
+      <form onSubmit={handleQuickPublish} className="mt-2.5 sm:mt-3">
         <textarea
           value={caption}
           onChange={(e) => setCaption(e.target.value)}
-          placeholder="Share a memory, an unsaid thought, or upload photos with your circle..."
+          placeholder="Share a memory, an unsaid thought..."
           rows={2}
-          className="w-full bg-transparent text-sm text-slate-100 placeholder:text-slate-500 focus:outline-none resize-none"
+          className="w-full bg-transparent text-xs sm:text-sm text-slate-100 placeholder:text-slate-500 focus:outline-none resize-none pt-0.5"
         />
 
         {showLocationInput && (
-          <div className="flex items-center gap-2 mb-3 bg-white/5 p-2 rounded-xl text-xs">
-            <MapPin className="w-3.5 h-3.5 text-sky-400" />
+          <div className="flex items-center gap-2 mb-2 sm:mb-3 bg-white/5 p-2 rounded-xl text-xs">
+            <MapPin className="w-3.5 h-3.5 text-sky-400 flex-shrink-0" />
             <input 
               type="text"
               value={location}
               onChange={(e) => setLocation(e.target.value)}
               placeholder="Add location (e.g., Big Sur, Tokyo, Studio)..."
-              className="bg-transparent flex-1 focus:outline-none text-slate-200"
+              className="bg-transparent flex-1 focus:outline-none text-slate-200 text-xs"
             />
             <button 
               type="button" 
@@ -133,8 +133,8 @@ export const PostComposer: React.FC<PostComposerProps> = ({
           </div>
         )}
 
-        {/* Claymorphic Mood Pills */}
-        <div className="flex items-center gap-1.5 overflow-x-auto pb-2 pt-1 no-scrollbar">
+        {/* Claymorphic Mood Pills (Visible on sm: and up to keep mobile clean & narrow) */}
+        <div className="hidden sm:flex items-center gap-1.5 overflow-x-auto pb-2 pt-1 no-scrollbar">
           <span className="text-[10px] text-slate-500 font-medium mr-1 flex items-center gap-1">
             Mood:
           </span>
@@ -155,35 +155,35 @@ export const PostComposer: React.FC<PostComposerProps> = ({
         </div>
 
         {/* Bottom Actions Bar */}
-        <div className="flex items-center justify-between pt-3 border-t border-white/5 mt-2 flex-wrap gap-2">
-          <div className="flex items-center gap-2 flex-wrap">
+        <div className="flex items-center justify-between pt-2.5 sm:pt-3 border-t border-white/5 mt-1 sm:mt-2 gap-2">
+          <div className="flex items-center gap-1.5 sm:gap-2">
             {/* Open Full Multi-file Upload Modal */}
             <button
               type="button"
               onClick={() => onOpenUploadModal('device')}
-              className="p-2 rounded-xl bg-white/5 hover:bg-white/10 text-sky-400 border border-white/10 flex items-center gap-1.5 text-xs font-semibold transition"
+              className="p-1.5 sm:p-2 px-2.5 sm:px-3 rounded-xl bg-white/5 hover:bg-white/10 text-sky-400 border border-white/10 flex items-center gap-1.5 text-xs font-semibold transition"
               title="Upload Photos from Device"
             >
-              <Image className="w-4 h-4" />
+              <Image className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
               <span className="hidden sm:inline">Add Photos</span>
             </button>
 
-            {/* Direct Google Drive Import Shortcut */}
+            {/* Direct Google Drive Import Shortcut (Hidden on mobile to keep narrow) */}
             <button
               type="button"
               onClick={() => onOpenUploadModal('drive')}
-              className="px-2.5 py-2 rounded-xl bg-[#0066da]/15 hover:bg-[#0066da]/25 text-[#72aaff] border border-[#4285f4]/30 flex items-center gap-1.5 text-xs font-semibold transition"
+              className="hidden sm:flex px-2.5 py-2 rounded-xl bg-[#0066da]/15 hover:bg-[#0066da]/25 text-[#72aaff] border border-[#4285f4]/30 items-center gap-1.5 text-xs font-semibold transition"
               title="Import Directly from Google Drive"
             >
               <HardDrive className="w-3.5 h-3.5 text-[#4285f4]" />
               <span>Google Drive</span>
             </button>
 
-            {/* Direct Google Photos Import Shortcut */}
+            {/* Direct Google Photos Import Shortcut (Hidden on mobile to keep narrow) */}
             <button
               type="button"
               onClick={() => onOpenUploadModal('photos')}
-              className="px-2.5 py-2 rounded-xl bg-rose-500/15 hover:bg-rose-500/25 text-rose-300 border border-rose-500/30 flex items-center gap-1.5 text-xs font-semibold transition"
+              className="hidden sm:flex px-2.5 py-2 rounded-xl bg-rose-500/15 hover:bg-rose-500/25 text-rose-300 border border-rose-500/30 items-center gap-1.5 text-xs font-semibold transition"
               title="Import Directly from Google Photos"
             >
               <Image className="w-3.5 h-3.5 text-rose-400" />
@@ -193,10 +193,10 @@ export const PostComposer: React.FC<PostComposerProps> = ({
             <button
               type="button"
               onClick={() => setShowLocationInput(!showLocationInput)}
-              className="p-2 rounded-xl bg-white/5 hover:bg-white/10 text-slate-400 hover:text-white border border-white/10 transition"
+              className="p-1.5 sm:p-2 rounded-xl bg-white/5 hover:bg-white/10 text-slate-400 hover:text-white border border-white/10 transition"
               title="Add Location"
             >
-              <MapPin className="w-4 h-4" />
+              <MapPin className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
             </button>
           </div>
 
@@ -204,10 +204,11 @@ export const PostComposer: React.FC<PostComposerProps> = ({
           <button
             type="submit"
             disabled={!caption.trim()}
-            className="liquid-glass-pill px-5 py-2 rounded-xl text-xs font-bold text-white flex items-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer transition shadow-lg"
+            className="liquid-glass-pill px-3.5 sm:px-5 py-1.5 sm:py-2 rounded-xl text-xs font-bold text-white flex items-center gap-1.5 sm:gap-2 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer transition shadow-lg flex-shrink-0"
           >
-            <span>Share Memory</span>
-            <Send className="w-3.5 h-3.5" />
+            <span className="hidden sm:inline">Share Memory</span>
+            <span className="sm:hidden">Share</span>
+            <Send className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
           </button>
         </div>
       </form>
